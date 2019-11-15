@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 
-""" Developed by Valentyna Fihurska
+""" Developed by Valentyna Fihurska for HireRush.com
 	Start of development: 18-Oct-2019
 	The program is created with HireRush`s problem in mind, namely
 	significant percentage of blocked messages due to 30007 error.
 	Credit for help with twilio API goes to Alex Sheplyakov.
 	
 """
+
+# +13472529810
+# +18185325348
+# +19157773224
 
 import csv
 import threading
@@ -20,10 +24,34 @@ import requests
 #import logging
 import time
 import pandas as pd
+import sqlite3
 
-ACCOUNT_SID = 'AC8d84a772e99693a91a7eb41d19d0df07'
-AUTH_TOKEN = '38e2cd1a6d6e6d357eb528e0d3db011f'
-SMS_SERVICE_SID = 'MG39504f8faa6db7238a80b7b8d5736164'
+file = open('tokens.txt', 'r')
+tokens = file.readlines()
+
+
+ACCOUNT_SID = tokens[0].strip()
+AUTH_TOKEN = tokens[1].strip()
+SMS_SERVICE_SID = tokens[2].strip()
+
+
+def fill_data_base(frame):
+# Automatic filling the data base with scraped information
+
+	connection = sqlite3.connect('./for_hirerush.db')
+	cursor = connection.cursor()
+	try:
+		cursor.execute('CREATE TABLE phone_monitor_2days_stats_2min_interval (banned INT, date_time TEXT, partial_load DECIMAL, percentage_banned DECIMAL, phone TEXT, total INT)')
+	except Exception as e:
+		pass
+	cursor.execute("INSERT INTO phone_monitor_2days_stats_2min_interval VALUES (?, ?, ?, ?, ?, ?)", 
+		(int(frame['banned']), str(frame['date']), float(frame['partial_load']), float(frame['percentage_banned']), str(frame['phone']), int(frame['total'])))
+	connection.commit()
+	cursor.close()
+	connection.close()
+
+
+
 
 #'https://preview.twilio.com/Numbers/ActiveNumbers/{}.json'
 def check_status(now=datetime.now()):
@@ -36,7 +64,7 @@ def check_status(now=datetime.now()):
 	client = Client(ACCOUNT_SID, AUTH_TOKEN)
 	#today = datetime.now()
 
-	period = timedelta(days=1)
+	period = timedelta(days=2)
 	interval = now-period
 
 	print(interval)
@@ -79,12 +107,12 @@ def check_status(now=datetime.now()):
 		phone_seria['partial_load'] = partial_load
 		phone_seria['date'] = str(now)[0:19]
 		phone_frame = phone_frame.append(phone_seria, ignore_index=True)
-		
+		fill_data_base(phone_seria)
 		#print(phone_frame)
 		#print(phone, "\t", phones_map[phone]['total'], "\t", phones_map[phone]['ban'], (phones_map[phone]['ban']/phones_map[phone]['total'])*100, "\t", partial_load)
 		#time.sleep(10)
-		if partial_load < 0.09:
-			continue
+		if int(phones_map[phone]['total']) < 25:
+			pass
 		else:
 			if (phones_map[phone]['ban']/phones_map[phone]['total']) > 0.25:
 				for ph in phones_dicts:
@@ -108,63 +136,17 @@ def check_status(now=datetime.now()):
 	frame['undelivered'] = errors
 	new_frame = new_frame.append(frame, ignore_index = True)
 	new_frame.to_csv('phone_stats.csv', mode = 'a', header = False)
-	phone_frame.to_csv('full_phone_log.csv', mode='a', header=False)
+	#phone_frame.to_csv('full_phone_log_3_days_stats.csv', mode='a', header=False)
+	#fill_data_base(phone_frame)
 	try:
-		print(phone_frame.head(13))
+		print(phone_frame.head(15))
 	except Exception:
 		print(phone_frame)
 
-
-
-
-
-
-def suspend_text_capability(phone_number):
-	auth = (ACCOUNT_SID, AUTH_TOKEN)
-	url = 'https://preview.twilio.com/Numbers/ActiveNumbers/{}.json'.format(phone_number.sid)
-	
-	json_str = """{
-    				"items": [
-        						{"phone_number": "{}",
-            					"capabilities": {"voice": {"inbound_connectivity": true,
-                    										"outbound_connectivity": true,
-                    										"e911": true,
-                    										"fax": true,
-                    										"sip_trunking": true,
-                    										"calls_per_second": 30,
-                    										"concurrent_calls_limit": 30,
-                    										"long_record_length": 30,
-                    										"inbound_called_dtmf": true,
-                    										"inbound_caller_dtmf": true,
-                    										"inbound_caller_id_preservation": "international",
-                    										"inbound_reachability": "global",
-                    										"codecs": ["g711u"]
-                    										},
-
-                									"sms": {"inbound_connectivity": false,
-                    										"outbound_connectivity": false,
-                    										"gsm7": false,
-                    										"ucs2": false,
-                    										"gsm7_concatenation": false,
-                    										"ucs2_concatenation": false,
-                    										"inbound_sender_id_preservation": "international",
-                    										"inbound_reachability": "global",
-                    										"inbound_mps": -1
-                    										},
-                				
-                									"mms": {"inbound_connectivity": false,
-                    										"outbound_connectivity": false,
-                    										"inbound_reachability": "global",
-                    										"inbound_mps": -1
-                    										}
-            									}
-								}]}""".format(phone_number)
-	json_conf = json.loads(json_str)
-	r = requests.post(url, auth=auth, data = json_conf)
 
 if __name__ == '__main__':
 	while True:
 		check_status(datetime.now())
 		time.sleep(120)
-		if (time.localtime().tm_hour > 2) and (time.localtime().tm_hour < 14):
+		if (time.localtime().tm_hour > 2) and (time.localtime().tm_hour < 13):
 			time.sleep(43000)
