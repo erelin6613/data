@@ -18,10 +18,11 @@ import json
 from datetime import datetime
 import sqlite3
 import re
+import gensim 
 #import findspark
-#from pyspark.sql import SparkSession, SQLContext
-#from pyspark.sql.types import StructType, StructField, StringType
-#import pyspark
+from pyspark.sql import SparkSession, SQLContext
+from pyspark.sql.types import StructType, StructField, StringType
+import pyspark
 
 #schema = StructType([StructField('date_time', StringType(), True),
 #                     StructField('sender', StringType(), True),
@@ -36,6 +37,19 @@ import re
 #data = pd.read_csv('chatbot_data.csv')
 #data.set_index('id')
 #print(data.head(10))
+
+def load_data(db_path, table_name):
+
+	connection = sqlite3.connect(db_path)
+	cursor = connection.cursor()	
+	cursor.execute('SELECT * FROM {}'.format(table_name))
+
+def spellcheck(data_path):
+	pass
+	#model = gensim.models.KeyedVectors.load_word2vec_format('/home/val/GoogleNews-vectors-negative300.bin.gz')
+	#print(model.index2word)
+
+
 def clean_messages(frame):
 
 #for col, row in data.iterrows():
@@ -55,24 +69,26 @@ def clean_messages(frame):
 	if '=' in frame['message']:
 		frame['message'] = frame['message'].replace('=', '')
 
+	try:
+		frame['message'] = frame['message'].replace('\n', ' ')
+	except Exception:
+		pass
+
+	try:
+		frame['message'] = frame['message'].replace('\r', ' ')
+	except Exception:
+		pass
+
+	try:
+		frame['message'] = frame['message'].replace('\t', ' ')
+	except Exception:
+		pass
+
 	return frame
 
 	#sleep(5)
 
-#print(data['message'].strip('\n').strip('\r'))
 
-"""java_dir = '/usr/lib/jvm/java-11-openjdk-amd64'
-spark_dir = '/home/val/spark-3.0.0-preview-bin-hadoop3.2'
-os.environ['JAVA_HOME'] = java_dir
-findspark.init(spark_home=spark_dir) """
-#spark = SparkSession.builder.appName("chatbot_data").getOrCreate()
-#schema = StructType([])
-#empty = pyspark.SparkContext.emptyRDD()
-#full_data = spark.read.csv('chatbot_data.csv', header=True)
-#full_data = full_data.toPandas()
-#full_data = spark.createDataFrame(data, schema=schema)
-#print(full_data.show())
-#exit()
 
 def fill_base(frame):
 # Automatic filling the data base with scraped information
@@ -102,7 +118,7 @@ def get_gmail_data():
 	#all_labels = ['in:QandA', 'in:blog', 'in:marketing']
 
 		#for label in all_labels:
-	request = service.users().messages().list(userId='me', q='in:blog')
+	request = service.users().messages().list(userId='me', q='in:QandA')
 	while request is not None:
 
 			response = request.execute()
@@ -146,7 +162,42 @@ def get_gmail_data():
 				#sleep(5)
 
 if __name__ == '__main__':
-	get_gmail_data()
+	frame = pd.read_csv('chatbot_data.csv', sep='\n')
+	data = pd.DataFrame(columns= frame.columns[0].split(';'))
+	for row in frame.iterrows():
+		print(row[1]['date_time;sender;receiver;history_id;id;snippet;response_id;message;intent'])
+		break
+		#data.append(row.split(';'), ignore_index=True)
+	print(data)
+	#print(data.head(10))
+
+	#get_gmail_data()
+
+	#data = pd.read_csv('chatbot_data.csv', sep='\|')
+	#data.set_index('id')
+	#print(data.head(10))
+	#data = data.apply(clean_messages)
+	#print(data['message'].strip('\n').strip('\r'))
+	#spark = SparkSession.builder.appName("chatbot_data").getOrCreate()
+	#full_data = spark.read.csv('chatbot_data.csv', header=True, sep='\n')
+	#print(full_data.show(10))
+
+
+"""java_dir = '/usr/lib/jvm/java-11-openjdk-amd64'
+	spark_dir = '/home/val/spark-3.0.0-preview-bin-hadoop3.2'
+	os.environ['JAVA_HOME'] = java_dir
+findspark.init(spark_home=spark_dir) """
+	
+#schema = StructType([])
+#empty = pyspark.SparkContext.emptyRDD()
+
+	#full_data = full_data.toPandas()
+	#full_data = spark.createDataFrame(data, schema=schema)
+#print(full_data.show())
+#exit()
+	#load_data('./for_hirerush.db')
+	#spellcheck()
+	#get_gmail_data()
 
 
 """
